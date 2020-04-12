@@ -1,0 +1,178 @@
+#!/bin/sh
+usage() {
+echo "Usage: $0 STATUSDIR COMMAND [ARGV]"
+echo
+echo "***STATUSDIR: the status directory of the service, e.g. /home/work/redis-store/status/redis"
+echo
+echo "***COMMAND: should be one the following words: restart, alarm, status, reconf, exit, stop, or start"
+echo "restart: e.g. $0 STATUSDIR restart"
+echo "Restart the service."
+echo
+echo "alarm: e.g. $0 STATUSDIR alarm <on|off>"
+echo "Turn on/off the alarm function of the service"
+echo
+echo "status: e.g. $0 STATUSDIR status"
+echo "Show status (include pid, start time, alarm switch, etc.) of the service"
+echo
+echo "reconf: e.g. $0 STATUSDIR reconf"
+echo "Reload supervise configurations of the service."
+echo
+echo "exit: e.g. $0 STATUSDIR exit"
+echo "Stop service SERVICE as well as its supervise."
+echo
+echo "stop: e.g. $0 STATUSDIR stop"
+echo "Stop service SERVICE and supervise will not restart it until a \"start\" command is excuted on the service."
+echo
+echo "start: e.g. $0 STATUSDIR start"
+echo "Start the service that is stoped before by a \"stop\" command."
+echo
+}
+
+[ $# -lt 2 ] && { usage; exit 1; }
+statusdir=$1
+command=$2
+sid=0
+[ ! -d $statusdir ] && { echo "Error: \"$statusdir\" is not a valid status directory."; exit 2; }
+cd $statusdir || exit 3
+service=`basename $PWD`
+
+[ ! -p ok ] && { echo "Error: \"supervise\" is not alive! I can do nothing except to quit."; exit 4; }
+[ ! -w status ] && { echo "Error: I have no privilege to operate this service, quit now!"; exit 4; }
+[ ! -f status ] || [ ! -s status ] && { echo "Error: File \"${statusdir}/status\" doesn't exist or is empty!" ; exit 5; }
+[ ! -p control ] && { echo "Error: Control pipe \"${statusdir}/control\" doesn't exist!"; exit 6; }
+
+pid=$(od -d status | head -n 2 | tail -n 1 | awk '{print $2}')
+[ $pid -ne 0 ] && sid=$(cat /proc/${pid}/status | grep "PPid:" | awk '{print $2}')
+[ -n $sid ] && [ $sid -gt 1 ] && ourpids=$(pgrep -d ' ' -s $sid | sed "s/$sid //" )
+startfrom=$(date "+%Y%m%d %H:%M:%S" -d "1970-01-01 UTC $( od -t u1 status | head -n 1 |awk  '{print $6*256*256*256+$7*256*256+$8*256+$9}') seconds")
+updown=$(od -c status | head -n 1 | awk '{print $15}')
+alarm=$(od -c status | head -n 1 | awk '{print $16}')
+
+case "SVC$command" in 
+	"SVCrestart" )
+		( [ $pid -eq 0 ] || [ -z "$ourpids" ] ) && { 
+			echo "Error: service \"$service\" is stoped and \"restart\" command is not available, try \"start\" command to start it.";
+			exit 7;
+		}
+		echo "Turn off alarm..."
+		echo s > control
+		sleep 0.5
+		echo "Restart service \"$service\"..."
+		kill -9 $ourpids
+		sleep 2
+		echo "Turn on alarm..."
+		echo n > control
+		pid_new=$(od -d status | head -n 2 | tail -n 1 | awk '{print $2}')
+		( [ $pid_new -eq $pid ] || [ $pid_new -eq 0 ] ) && \
+		echo "Error: New pid of service is same as the old one, restart service failed."
+		;;
+	"SVCexit" )
+		echo "Turn off alarm..."
+		echo s > control
+		sleep 0.5
+		echo "Stop service \"$service\" and supervise..."
+		echo x > control
+		[ -n "$ourpids" ] && kill -9 $ourpids
+		sleep 1
+                pid_new=$(od -d status | head -n 2 | tail -n 1 | awk '{print $2}')
+                if [ $pid_new -ne 0 ];then
+			echo "Error: Stop service failed!"
+			echo  "Notice: from now on, if the service stop, supervise will not restart it and quit itself."
+		else
+			rm -f ok
+			echo "Service \"$service\" and its supervise stoped."
+		fi
+		;;
+	"SVCalarm" )
+		case "ARG$3" in
+			"ARGoff" )
+				[ $alarm == "x" ] && {
+					echo "Warning: alarm is already off, nothing has been done.";
+					exit 7;
+				}
+				echo s > control
+				sleep 0.5
+				alarm_new=$(od -c status | head -n 2 | tail -n 1 | awk '{print $4}')
+				if [ "$alram_new" == "o" ]; then
+					echo "Error: failed to turn alarm function OFF."
+				else
+					echo "Succeed to turn alarm function OFF."
+				fi 
+				;;
+			"ARGon" )
+				[ $alarm == "o" ] && {
+					echo "Warning: alarm is already on, nothing has been done";
+					exit 7;
+				}
+				echo n > control
+				sleep 0.5
+				alarm_new=$(od -c status | head -n 2 | tail -n 1 | awk '{print $4}')
+				if [ "$alram_new" == "x" ]; then
+					echo "Error: failed to turn alarm function ON."
+				else
+					echo "Succeed to turn alarm function ON."
+				fi 
+				;;
+			* )
+				echo "Error: The 3rd argument should be \"on\" or \"off\" if the 2nd argument is \"alarm\"."
+				;;
+		esac
+		;;
+	"SVCstatus" )
+		echo "showing status..."
+		echo "pid: $pid"
+		echo "start time: $startfrom"
+		if [ "$alarm" == "o" ];then
+			echo "alarm: ON"
+		elif [ "$alarm" == "x" ]; then
+			echo "alarm: OFF"
+		else
+			echo "alarm: UNKNOWN"
+		fi
+		;;
+	"SVCreconf" )
+		echo r > control
+		echo "Reload configuration finished, please check supervise.log"
+		;;
+	"SVCstop" )
+		[ $pid -eq 0 ] && {
+			echo "Warning: service has already been stoped."
+			exit 7
+		}
+		echo "Turn off alarm..."
+		echo s > control
+		sleep 0.5
+		echo "Stop service \"$service\"..."
+		echo d > control
+		sleep 2
+		[ -n "$ourpids" ] && kill -9 $ourpids 2>/dev/null
+		echo "Turn on alarm..."
+		echo n > control
+		sleep 2
+                pid_new=$(od -d status | head -n 2 | tail -n 1 | awk '{print $2}')
+                if [ $pid_new -ne 0 ];then
+			echo "Error: Stop service failed!"
+		else
+			echo "Stop service \"$service\" successfully."
+		fi
+		;;
+	"SVCstart" )
+                [ $pid -ne 0 ] && {
+                        echo "Warning: service is already started, nothing has been done."
+                        exit 6
+                }
+		echo "Start service ..."
+		echo u > control
+		sleep 2 
+                pid_new=$(od -d status | head -n 2 | tail -n 1 | awk '{print $2}')
+                if [ $pid_new -eq 0 ];then 
+                        echo "Error: Start service failed!"
+                else
+                        echo "Start service \"$service\" sucessfully."
+                fi
+		;;
+	*)
+		usage
+		;;
+esac	
+

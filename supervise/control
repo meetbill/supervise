@@ -1,0 +1,46 @@
+#!/bin/bash
+set -e
+trap "echo Fail unexpectedly on line \$LINENO!" ERR
+
+#------------------ configure --------------------
+
+BIN_DIR=./bin
+SUPERVISE=./supervise
+SVC=./svc
+STATUS=status/redis
+COMMOND="./bin/redis-server conf/redis.conf"
+
+#-------------------------------------------------
+
+control_stop() {
+    $SVC $STATUS exit
+}
+
+control_restart() {
+    $SVC $STATUS restart
+}
+
+control_start() {
+    $SUPERVISE -u $STATUS $COMMOND
+}
+
+control_help() {
+    echo "Usage: $(basename "$0") [start|stop|restart|help"
+}
+
+ACTION=$1
+
+case "X$ACTION" in
+    Xstart)
+        control_start
+        ;;
+    Xrestart)
+        control_restart
+        ;;
+    Xstop)
+        control_stop
+        ;;
+    *)
+        control_help
+        ;;
+esac
