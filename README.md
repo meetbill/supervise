@@ -33,12 +33,18 @@
 
 报警邮件列表、手机列表若在 [global] 中已配置，则其本身的配置段中不要再配。
 
-> * alarm_interval: 报警间隔。在 alarm_interval 秒内只在第一次服务重启时报警。以后只写日志不报警。若该项未配置为配置为 0 则其它配置项均无效。最短时间为 60s，小于 60 按 60 计算。
-> * alarm_mail: 报警邮箱，可配置多个，以空格或 tab 分隔。该行不能超过 2048 字符（包括行尾的空白字符），超过部分忽略。也可为空，为空时不报警。
+> * alarm_interval: 报警间隔
+>   * 在 alarm_interval 秒内只在第一次服务重启时报警。以后只写日志不报警
+>   * 若该项未配置或配置为 0 则其它配置项均无效。最短时间为 60s，小于 60 按 60 计算。
+> * alarm_mail: 报警邮箱，可配置多个，以空格或 tab 分隔
+>   * 该行不能超过 2048 字符（包括行尾的空白字符），超过部分忽略。也可为空，为空时不报警。
 > * alarm_gsm: 报警手机，最多 10 个，以空格或 tab 分隔。需要权限，暂时没用。
-> * max_tries: 最大重启次数。若指定，则在 alarm_interval 时间内最多重启 max_tries, 超过后 supervise 不再重启服务，supervise 发出告警并退出。可为空或 0，为空或 0 时重启次数无限制。
-> * max_tries_if_coredumped: 若指定，则在 alarm_interval 时间内 coredumped 次数达到 max_tries_if_coredumped 后不再重启服务，supervise 发出告警并退出。可为空或 0，为空或 0 时重启次数无限制。
-
+> * max_tries: 最大重启次数
+>   * 若指定，则在 alarm_interval 时间内最多重启 max_tries, 超过后 supervise 不再重启服务，supervise 发出告警并退出。
+>   * 可为空或 0，为空或 0 时重启次数无限制。
+> * max_tries_if_coredumped: 
+>   * 若指定，则在 alarm_interval 时间内 coredumped 次数达到 max_tries_if_coredumped 后不再重启服务，supervise 发出告警并退出。
+>   * 可为空或 0，为空或 0 时重启次数无限制。
 
 ```
 [someModuleThatNoNeedNewFunction]
