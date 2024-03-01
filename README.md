@@ -64,6 +64,8 @@ status/xxx/
 ├── lock
 ├── ok
 ├── status
+├── __stdout        // module 标准输出
+├── __stderr        // module 标准错误
 ├── supervise.log
 └── supervise.log.wf
 ```
@@ -78,7 +80,7 @@ supervise64 -f <要监控的程序启动启动命令> -p <状态目录> -F super
 ```
 CMD="python app.py"
 mkdir -p ./status/some-app
-./supervise -p ./status/some-app -f "$CMD" >/dev/null 2> ./status/some-app/supervise.log &
+./supervise -p ./status/some-app -f "$CMD"
 ```
 
 * 杀进程：

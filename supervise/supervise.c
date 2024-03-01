@@ -44,7 +44,7 @@ int flagpaused; /* defined if(pid) */
 char status[20];
 
 char status_dir[1024];
-char status_files[7][1024];
+char status_files[9][1024];
 char service[512];
 char *cmdp[512];
 char cmd[512][1024];
@@ -463,6 +463,8 @@ static void trystart()
 		case 0:
 			sig_uncatch(sig_child);
 			sig_unblock(sig_child);
+			freopen(status_files[7], "a+", stdout);
+			freopen(status_files[8], "a+", stderr);
 			execvp(cmd[0], cmdp);
 			write_log(fdlogwf, FATAL, "unable to start ", cmd[0], "\n");
 			_exit(1);
@@ -806,6 +808,8 @@ int main(int argc, char **argv)
 	snprintf(status_files[4], 1024, "%s/status.new", status_dir);
 	snprintf(status_files[5], 1024, "%s/supervise.log", status_dir);
 	snprintf(status_files[6], 1024, "%s/supervise.log.wf", status_dir);
+	snprintf(status_files[7], 1024, "%s/__stdout", status_dir);
+	snprintf(status_files[8], 1024, "%s/__stderr", status_dir);
 
 	sa.sa_handler = SIG_IGN;
 	sigemptyset(&sa.sa_mask);
